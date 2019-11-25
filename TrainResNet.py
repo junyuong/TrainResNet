@@ -31,14 +31,17 @@ if gpus:
         print(e)
 #####################
 
+x = 224
+y = 224
 
+batch = 32
 
 # 1. 데이터 생성하기
 train_datagen = ImageDataGenerator(rescale=1./255)
 train_generator = train_datagen.flow_from_directory(
-        'C://PycharmProjects/KerasTest/phd08 300 size',
-        target_size=(224, 224),
-        batch_size=16,
+        'C://PycharmProjects/TRAINDATA/각도 25 이미지 증강 set',
+        target_size=(x, y),
+        batch_size=batch,
         color_mode='rgb',
         class_mode='categorical')
 
@@ -46,15 +49,15 @@ train_generator = train_datagen.flow_from_directory(
 test_datagen = ImageDataGenerator(rescale=1./255)
 
 test_generator = test_datagen.flow_from_directory(
-        'C://PycharmProjects/KerasTest/val_data',
-        target_size=(224, 224),
-        batch_size=16,
+        'C://PycharmProjects/TRAINDATA/TotalVal',
+        target_size=(x, y),
+        batch_size=batch,
         color_mode='rgb',
         class_mode='categorical')
 
-K = 2350
+K = 2384
 
-input_tensor = Input(shape=(224, 224, 3), dtype='float32', name='input')
+input_tensor = Input(shape=(x, y, 3), dtype='float32', name='input')
 
 
 def conv1_layer(x):
@@ -241,39 +244,6 @@ def conv5_layer(x):
     return x
 
 
-# # 2. 모델 구성하기
-# model = Sequential()
-# model.add(Conv2D(32, kernel_size=(9, 9),
-#                  activation='relu',
-#                  input_shape=(128, 128, 3)))
-# model.add(Conv2D(64, (9, 9), activation='relu'))
-# model.add(MaxPooling2D(pool_size=(2, 2)))
-# model.add(Flatten())
-# model.add(Dense(128, activation='relu'))
-# model.add(Dense(2350, activation='softmax'))
-#
-# # 3. 모델 학습 과정 설정하기
-# model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-#
-#
-# # 4. 모델 학습시키기
-# model.fit_generator(
-#         train_generator,
-#         steps_per_epoch=15,
-#         epochs=50,
-#         validation_data=test_generator,
-#         validation_steps=5)
-#
-# # 5. 모델 평가하기
-# scores = model.evaluate_generator(test_generator, steps=5)
-# print("%s: %.2f%%" %(model.metrics_names[1], scores[1]*100))
-#
-# # 6. 모델 사용하기
-# print("-- Predict --")
-# output = model.predict_generator(test_generator, steps=5)
-# np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
-# print(test_generator.class_indices)
-# print(output)
 
 x = conv1_layer(input_tensor)
 x = conv2_layer(x)
@@ -282,25 +252,29 @@ x = conv4_layer(x)
 x = conv5_layer(x)
 
 x = GlobalAveragePooling2D()(x)
-output_tensor = Dense(K, activation='softmax')(x)
+ #x = layers.Dropout(0.5)(x)
+x = Dropout(0.5)(x)
 
+output_tensor = Dense(K, activation='softmax')(x)
 resnet50 = Model(input_tensor, output_tensor)
 resnet50.summary()
-checkpoint = ModelCheckpoint(filepath='240x240_ResNet_weight.h5',
+
+
+
+checkpoint = ModelCheckpoint(filepath='224x224_ResNet_weight_2384class_{epoch}.h5',
                              monitor='loss',
                              mode='min',
                              save_best_only=True)
 
-resnet50.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-early_stopping = EarlyStopping(patience= 2)
+resnet50.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 history = resnet50.fit_generator(train_generator,
                                  steps_per_epoch=math.ceil(train_generator.n / train_generator.batch_size),
-                                 epochs=10,
+                                 epochs=100,
                                  validation_data=test_generator,
                                  validation_steps=math.ceil(test_generator.n / test_generator.batch_size),
-                                 callbacks=[early_stopping, checkpoint])
+                                 callbacks=[checkpoint])
 
 # number of train & validation samples
 # print(train_generator.n)
